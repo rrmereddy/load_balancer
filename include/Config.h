@@ -1,6 +1,6 @@
 /**
  * @file Config.h
- * @brief Defines configuration data for the load balancer.
+ * @details Defines configuration data for the load balancer.
  */
 
 #pragma once

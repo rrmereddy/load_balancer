@@ -26,21 +26,21 @@ struct Request {
 };
 
 /**
- * @details Convert JobType to a single character label.
+ * @brief Convert JobType to a single character label.
  * @param type The job type.
  * @return 'P' for Processing, 'S' for Streaming.
  */
 char jobTypeToChar(JobType type);
 
 /**
- * @details Convert a single character label to JobType.
+ * @brief Convert a single character label to JobType.
  * @param typeChar The job type character.
  * @return JobType enum value.
  */
 JobType jobTypeFromChar(char typeChar);
 
 /**
- * @details Convert JobType to a human-readable string.
+ * @brief Convert JobType to a human-readable string.
  * @param type The job type.
  * @return String label for the job type.
  */
