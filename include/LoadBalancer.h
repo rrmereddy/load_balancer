@@ -6,6 +6,7 @@
 #pragma once
 
 #include "Request.h"
+#include "WebServer.h"
 #include <queue>
 #include <vector>
 
@@ -61,6 +62,7 @@ public:
 
 private:
     std::queue<Request> requestQueue_;
+    std::vector<WebServer> servers_;
     int clock_;
     int nextServerId_;
 };
