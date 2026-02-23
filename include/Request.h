@@ -45,3 +45,9 @@ JobType jobTypeFromChar(char typeChar);
  * @return String label for the job type.
  */
 std::string jobTypeToString(JobType type);
+
+/**
+ * @brief Create a random request for simulation.
+ * @return Randomly generated Request.
+ */
+Request makeRandomRequest();

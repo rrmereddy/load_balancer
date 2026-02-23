@@ -4,6 +4,8 @@
  */
 
 #include "Request.h"
+#include <random>
+#include <string>
 
 /**
  * This is used to convert the job type to a character for logging.
@@ -46,4 +48,27 @@ std::string jobTypeToString(JobType type) {
     default:
         return "Processing";
     }
+}
+
+
+/**
+ * This is used to make a random IP address for the request.
+ * Funstions implemented by AI using the header file provided.
+ */
+static std::string makeRandomIp(std::mt19937& engine) {
+    std::uniform_int_distribution<int> octetDist(0, 255);
+    return std::to_string(octetDist(engine)) + "." + std::to_string(octetDist(engine)) +
+           "." + std::to_string(octetDist(engine)) + "." + std::to_string(octetDist(engine));
+}
+
+Request makeRandomRequest() {
+    static std::mt19937 engine(std::random_device{}());
+    std::uniform_int_distribution<int> timeDist(1, 10);
+
+    Request request;
+    request.ipIn = makeRandomIp(engine);
+    request.ipOut = makeRandomIp(engine);
+    request.timeCycles = timeDist(engine);
+    request.jobType = JobType::Processing;
+    return request;
 }
