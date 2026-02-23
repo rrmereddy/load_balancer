@@ -66,9 +66,15 @@ Request makeRandomRequest() {
     std::uniform_int_distribution<int> timeDist(1, 10);
 
     Request request;
+    // create a random IP address for the request
     request.ipIn = makeRandomIp(engine);
     request.ipOut = makeRandomIp(engine);
     request.timeCycles = timeDist(engine);
-    request.jobType = JobType::Processing;
+
+    // a radnom number is generated to determine the job type
+    const int jobType = timeDist(engine) % 2;
+    request.jobType = jobType == 0 ? JobType::Processing : JobType::Streaming;
+    
+    // return the request
     return request;
 }
