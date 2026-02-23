@@ -23,9 +23,11 @@ build/%.o: src/%.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 # build the balancer(if needed) then run it
-run: $(BIN)
+run: clean $(BIN)
 	./$(BIN)
 
 # remove the build and bin
 clean:
 	rm -rf build $(BIN)
+	rm -f load_balancer.txt
+	rm -f load_balancer
