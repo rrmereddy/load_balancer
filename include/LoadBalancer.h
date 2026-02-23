@@ -10,6 +10,8 @@
 #include <queue>
 #include <vector>
 
+class Logger;
+
 /**
  * @details Manages a queue of requests and a pool of web servers.
  */
@@ -38,6 +40,19 @@ public:
      * @param request Request to add.
      */
     void enqueueRequest(const Request& request);
+
+    /**
+     * @details Check if there are any pending requests.
+     * @return True if queue has items, false otherwise.
+     */
+    bool hasPendingRequests() const;
+
+    /**
+     * @details Dispatch at most one request per server and log it.
+     * @param logger Logger to record handled requests.
+     * @return True if any request was dispatched, false otherwise.
+     */
+    bool dispatchToServers(Logger& logger);
 
     /**
      * @details Advance the internal clock by one cycle.

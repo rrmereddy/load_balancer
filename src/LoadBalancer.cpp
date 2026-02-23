@@ -4,6 +4,8 @@
  */
 
 #include "LoadBalancer.h"
+#include "Logger.h"
+#include <sstream>
 
 LoadBalancer::LoadBalancer(int initialServers)
 : requestQueue_(), servers_(), clock_(0), nextServerId_(1) {
@@ -25,6 +27,35 @@ std::size_t LoadBalancer::getQueueSize() const {
 
 void LoadBalancer::enqueueRequest(const Request& request) {
     requestQueue_.push(request);
+}
+
+bool LoadBalancer::hasPendingRequests() const {
+    return !requestQueue_.empty();
+}
+
+bool LoadBalancer::dispatchToServers(Logger& logger) {
+    bool dispatched = false;
+
+    for (auto& server : servers_) {
+        // if there are no requests, break
+        if (requestQueue_.empty()) {
+            break;
+        }
+        // get the request from the queue
+        Request request = requestQueue_.front();
+        requestQueue_.pop();
+        server.assignRequest(request);
+        // log the request
+        std::ostringstream line;
+        line << "Clock " << clock_ << ": Server " << server.getId()
+             << " handled request from " << request.ipIn << " to " << request.ipOut;
+        logger.log(line.str());
+
+        server.clearRequest();
+        dispatched = true;
+    }
+
+    return dispatched;
 }
 
 void LoadBalancer::tick() {
