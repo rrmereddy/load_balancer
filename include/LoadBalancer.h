@@ -75,9 +75,29 @@ public:
      */
     int getClock() const;
 
+    /**
+     * @details Get the total number of requests.
+     * @return Total requests.
+     */
+    int getTotalRequestsCount() const;
+
+    /**
+     * @details Get the total number of requests handled.
+     * @return Total requests handled.
+     */
+    int getTotalRequestsHandledCount() const;
+
+    /**
+     * @details Get the total number of requests remaining.
+     * @return Total requests remaining.
+     */
+    int getTotalRequestsRemainingCount() const;
+
 private:
     std::queue<Request> requestQueue_;
     std::vector<WebServer> servers_;
     int clock_;
     int nextServerId_;
+    int totalRequests_;
+    int totalRequestsHandled_;
 };

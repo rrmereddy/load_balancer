@@ -55,7 +55,10 @@ int main() {
 
     std::cout << "Simulation complete. Servers: " << balancer.getServerCount()
               << ", Requests: " << initialRequestCount
-              << ", Cycles run: " << cyclesRun << '\n';
+              << ", Cycles run: " << cyclesRun
+              << ", Requests handled: " << balancer.getTotalRequestsHandledCount()
+              << ", Requests remaining: " << balancer.getTotalRequestsRemainingCount()
+              << '\n';
 
     return 0;
 }

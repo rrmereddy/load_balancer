@@ -8,7 +8,7 @@
 #include <sstream>
 
 LoadBalancer::LoadBalancer(int initialServers)
-: requestQueue_(), servers_(), clock_(0), nextServerId_(1) {
+: requestQueue_(), servers_(), clock_(0), nextServerId_(1), totalRequests_(0), totalRequestsHandled_(0) {
     if (initialServers < 0) {
         initialServers = 0;
     }
@@ -27,6 +27,7 @@ std::size_t LoadBalancer::getQueueSize() const {
 
 void LoadBalancer::enqueueRequest(const Request& request) {
     requestQueue_.push(request);
+    ++totalRequests_;
 }
 
 bool LoadBalancer::hasPendingRequests() const {
@@ -99,4 +100,20 @@ void LoadBalancer::removeServer() {
 
 int LoadBalancer::getClock() const {
     return clock_;
+}
+
+int LoadBalancer::getTotalRequestsCount() const {
+    return totalRequests_;
+}
+
+int LoadBalancer::getTotalRequestsHandledCount() const {
+    return totalRequestsHandled_;
+}
+
+/**
+ * @details Get the total number of requests remaining.
+ * @return Total requests remaining.
+ */
+int LoadBalancer::getTotalRequestsRemainingCount() const {
+    return totalRequests_ - totalRequestsHandled_;
 }
