@@ -41,17 +41,42 @@ bool LoadBalancer::dispatchToServers(Logger& logger) {
         if (requestQueue_.empty()) {
             break;
         }
+
+        // if the server is busy, skip it
+        if (server.isBusy()) {
+            // tick the server, this will decrement the time cycles of the request if it is busy and clear the request if it is done
+            if (server.handleRequest()) {
+                // log the request
+                std::ostringstream line;
+                line << "Clock " << clock_ << ": Server " << server.getId()
+                     << " completed request from " << server.getCurrentRequest().ipIn << " to " << server.getCurrentRequest().ipOut;
+                logger.log(line.str());
+                // clear the request
+                server.clearRequest();
+                ++totalRequestsHandled_;
+                continue;
+            }
+            // log the request
+            std::ostringstream line;
+            line << "Clock " << clock_ << ": Server " << server.getId()
+                 << " working on request from " << server.getCurrentRequest().ipIn << " to " << server.getCurrentRequest().ipOut
+                 << " finishing in " << server.getCurrentRequest().timeCycles << " cycles";
+            logger.log(line.str());
+            continue;
+        }
+
+        // the server is not busy, so assign a new request
         // get the request from the queue
         Request request = requestQueue_.front();
         requestQueue_.pop();
         server.assignRequest(request);
+
         // log the request
         std::ostringstream line;
         line << "Clock " << clock_ << ": Server " << server.getId()
-             << " handled request from " << request.ipIn << " to " << request.ipOut;
+             << " assigned request from " << request.ipIn << " to " << request.ipOut;
         logger.log(line.str());
 
-        server.clearRequest();
         dispatched = true;
     }
 

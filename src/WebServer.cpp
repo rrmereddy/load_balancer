@@ -4,6 +4,7 @@
  */
 
 #include "WebServer.h"
+#include <sstream>
 
 WebServer::WebServer(int id) : id_(id), currentRequest_() {
 }
@@ -14,6 +15,10 @@ WebServer::WebServer(int id) : id_(id), currentRequest_() {
  */
 int WebServer::getId() const {
     return id_; // return the server id
+}
+
+Request WebServer::getCurrentRequest() const {
+    return currentRequest_;
 }
 
 /**
@@ -37,4 +42,23 @@ void WebServer::assignRequest(const Request& request) {
  */
 void WebServer::clearRequest() {
     currentRequest_ = Request();
+}
+
+/**
+ * @brief Handle the current request. Process the request for one cycle.
+ *        If the request is completed, return true.
+ * @return True if the request is completed, false otherwise.
+ */
+bool WebServer::handleRequest() {
+    // if the server is not busy, return false
+    if (!isBusy()) {
+        return true; // just a failsafe, but this shouldn't trigger
+    }
+    // decrement the time cycles of the request
+    --currentRequest_.timeCycles;
+    // if the request is completed, return true
+    if (currentRequest_.timeCycles == 0) {
+        return true;
+    }
+    return false;
 }

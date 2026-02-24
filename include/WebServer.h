@@ -6,7 +6,7 @@
 #pragma once
 
 #include "Request.h"
-
+class Logger;
 /**
  * @brief Represents a single web server in the pool.
  */
@@ -25,6 +25,12 @@ public:
     int getId() const;
 
     /**
+     * @brief Get the current request.
+     * @return Current request.
+     */
+    Request getCurrentRequest() const;
+
+    /**
      * @brief Check if the server is currently processing a request.
      * @return True if busy, false otherwise.
      */
@@ -40,6 +46,13 @@ public:
      * @brief Clear the current request.
      */
     void clearRequest();
+
+    /**
+     * @brief Handle the current request. Process the request for one cycle.
+     *        If the request is completed, clear the request.
+     * @return True if the request is completed, false otherwise.
+     */
+    bool handleRequest();
 
 private:
     int id_;
