@@ -133,22 +133,40 @@ void LoadBalancer::evaluateScaling(int minQueuePerServer, int maxQueuePerServer,
         return;
     }
 
-    // if the queue size is greater than the max queue per server, add a server
-    const double queuePerServer = static_cast<double>(queueSize) / static_cast<double>(serverCount);
+    // if the queue size is greater than the max queue per server, add servers until threshold is met
+    double queuePerServer = static_cast<double>(queueSize) / static_cast<double>(serverCount);
     if (queuePerServer > static_cast<double>(maxQueuePerServer)) {
-        addServer();
+        int addedServers = 0;
+
+        // safeguard against invalid configuration that could loop forever
+        if (maxQueuePerServer <= 0) {
+            addServer();
+            ++addedServers;
+        } else {
+            // add servers until the threshold is met
+            while (!servers_.empty() && queuePerServer > static_cast<double>(maxQueuePerServer)) {
+                addServer();
+                ++addedServers;
+                // recalculate the queue per server
+                queuePerServer =static_cast<double>(queueSize) / static_cast<double>(servers_.size());
+            }
+        }
+
+        // log the scale up
         std::ostringstream line;
-        line << "Clock " << clock_ << ": Scale up -> queue/server " << queuePerServer
-             << " exceeds " << maxQueuePerServer << ", total servers: " << servers_.size();
+        line << "Clock " << clock_ << ": Scale up -> added " << addedServers
+             << " server(s), average queue per server is " << queuePerServer
+             << ", total servers: " << servers_.size();
         logger.log(line.str());
         return;
     }
-    // if the queue size is less than the min queue per server, remove a server
+    // if the queue size is less than the min queue per server, remove a server if possible
     if (queuePerServer < static_cast<double>(minQueuePerServer)) {
-        // if we can't remove a server, defer the scale down
-        // this way a server will be removed only once it finishes its request
+        // here we check whther the server can immediately be removed, else we defer the scale down
         if (!removeOneIdleServer(logger)) {
-            ++pendingScaleDown_;
+            ++pendingScaleDown_; // defer the scale down
+
+            // log the deferred scale down
             std::ostringstream line;
             line << "Clock " << clock_ << ": Scale down deferred -> no idle server available, pending removals: "
                  << pendingScaleDown_;
