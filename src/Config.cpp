@@ -12,8 +12,8 @@
 
 Config loadConfig() {
     Config config;
-    config.initialServers = 2;
-    config.runCycles = 1000;
+    config.initialServers = 10;
+    config.runCycles = 10000;
     config.minQueuePerServer = 50;
     config.maxQueuePerServer = 80;
     config.logFilePath = "load_balancer.txt";
