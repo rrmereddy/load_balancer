@@ -15,6 +15,7 @@ struct Config {
     int runCycles;
     int minQueuePerServer;
     int maxQueuePerServer;
+    int scalingCheckInterval;
     std::string logFilePath;
 };
 

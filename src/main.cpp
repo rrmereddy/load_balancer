@@ -48,6 +48,12 @@ int main() {
         // increment the number of cycles run
         ++cyclesRun;
 
+        // check whether scaling is required for the servers to help handle the requests
+        if (config.scalingCheckInterval > 0 && (cyclesRun % config.scalingCheckInterval) == 0) {
+            balancer.evaluateScaling(config.minQueuePerServer, config.maxQueuePerServer, logger);
+        }
+
+        // if there are no pending requests, break the loop
         if (!balancer.hasPendingRequests()) {
             break;
         }

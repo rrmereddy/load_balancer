@@ -5,10 +5,11 @@
 
 #include "LoadBalancer.h"
 #include "Logger.h"
+#include <iterator>
 #include <sstream>
 
 LoadBalancer::LoadBalancer(int initialServers)
-: requestQueue_(), servers_(), clock_(0), nextServerId_(1), totalRequests_(0), totalRequestsHandled_(0) {
+: requestQueue_(), servers_(), clock_(0), nextServerId_(1), totalRequests_(0), totalRequestsHandled_(0), pendingScaleDown_(0) {
     if (initialServers < 0) {
         initialServers = 0;
     }
@@ -31,19 +32,25 @@ void LoadBalancer::enqueueRequest(const Request& request) {
 }
 
 bool LoadBalancer::hasPendingRequests() const {
-    return !requestQueue_.empty();
+    // if the request queue is not empty, return true
+    if (!requestQueue_.empty()) {
+        return true;
+    }
+    // if any server is busy, return true
+    for (const auto& server : servers_) {
+        if (server.isBusy()) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 bool LoadBalancer::dispatchToServers(Logger& logger) {
     bool dispatched = false;
 
     for (auto& server : servers_) {
-        // if there are no requests, break
-        if (requestQueue_.empty()) {
-            break;
-        }
-
-        // if the server is busy, skip it
+        //if the server is busy, handle the request
         if (server.isBusy()) {
             // tick the server, this will decrement the time cycles of the request if it is busy and clear the request if it is done
             if (server.handleRequest()) {
@@ -66,8 +73,10 @@ bool LoadBalancer::dispatchToServers(Logger& logger) {
             continue;
         }
 
-        // the server is not busy, so assign a new request
-        // get the request from the queue
+        if (requestQueue_.empty()) {
+            continue;
+        }
+
         Request request = requestQueue_.front();
         requestQueue_.pop();
         server.assignRequest(request);
@@ -81,6 +90,9 @@ bool LoadBalancer::dispatchToServers(Logger& logger) {
         dispatched = true;
     }
 
+    // process the deferred scale down
+    processDeferredScaleDown(logger);
+
     return dispatched;
 }
 
@@ -93,13 +105,86 @@ void LoadBalancer::addServer() {
 }
 
 void LoadBalancer::removeServer() {
-    if (!servers_.empty()) {
-        servers_.pop_back();
+    for (auto it = servers_.rbegin(); it != servers_.rend(); ++it) {
+        if (!it->isBusy()) {
+            servers_.erase(std::next(it).base());
+            return;
+        }
     }
 }
 
 int LoadBalancer::getClock() const {
     return clock_;
+}
+
+void LoadBalancer::evaluateScaling(int minQueuePerServer, int maxQueuePerServer, Logger& logger) {
+    const std::size_t queueSize = requestQueue_.size();
+    const int serverCount = static_cast<int>(servers_.size());
+
+    // if there are no servers, add one
+    // Want to make sure we have at least one server to handle the requests
+    if (serverCount == 0) {
+        if (queueSize > 0) {
+            addServer();
+            std::ostringstream line;
+            line << "Clock " << clock_ << ": Scale up -> added server, total servers: " << servers_.size();
+            logger.log(line.str());
+        }
+        return;
+    }
+
+    // if the queue size is greater than the max queue per server, add a server
+    const double queuePerServer = static_cast<double>(queueSize) / static_cast<double>(serverCount);
+    if (queuePerServer > static_cast<double>(maxQueuePerServer)) {
+        addServer();
+        std::ostringstream line;
+        line << "Clock " << clock_ << ": Scale up -> queue/server " << queuePerServer
+             << " exceeds " << maxQueuePerServer << ", total servers: " << servers_.size();
+        logger.log(line.str());
+        return;
+    }
+    // if the queue size is less than the min queue per server, remove a server
+    if (queuePerServer < static_cast<double>(minQueuePerServer)) {
+        // if we can't remove a server, defer the scale down
+        // this way a server will be removed only once it finishes its request
+        if (!removeOneIdleServer(logger)) {
+            ++pendingScaleDown_;
+            std::ostringstream line;
+            line << "Clock " << clock_ << ": Scale down deferred -> no idle server available, pending removals: "
+                 << pendingScaleDown_;
+            logger.log(line.str());
+        }
+    }
+}
+
+/**
+ * @details Remove one idle server if any and if requested. Finished by AI
+ * @param logger Logger for removal events.
+ * @return True if a server was removed, false otherwise.
+ */
+bool LoadBalancer::removeOneIdleServer(Logger& logger) {
+    for (auto it = servers_.rbegin(); it != servers_.rend(); ++it) {
+        if (!it->isBusy()) {
+            const int removedServerId = it->getId();
+            servers_.erase(std::next(it).base());
+
+            std::ostringstream line;
+            line << "Clock " << clock_ << ": Scale down -> removed idle server " << removedServerId
+                 << ", total servers: " << servers_.size();
+            logger.log(line.str());
+            return true;
+        }
+    }
+    return false;
+}
+
+void LoadBalancer::processDeferredScaleDown(Logger& logger) {
+    while (pendingScaleDown_ > 0) {
+        if (!removeOneIdleServer(logger)) {
+            return;
+        }
+        --pendingScaleDown_;
+    }
 }
 
 int LoadBalancer::getTotalRequestsCount() const {
