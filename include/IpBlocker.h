@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -17,23 +18,24 @@ struct IpRange {
 };
 
 /**
- * @details Simple IP blocker placeholder for firewall rules.
+ * @details IPv4 allowlist blocker that rejects out-of-range sources.
  */
 class IpBlocker {
 public:
     /**
-     * @details Add a blocked IP range.
-     * @param range The range to block.
+     * @details Add an allowed IPv4 range (inclusive).
+     * @param range The range to allow.
+     * @return True if range is valid and added, false otherwise.
      */
-    void addBlockedRange(const IpRange& range);
+    bool addAllowedRange(const IpRange& range);
 
     /**
-     * @details Check if an IP is blocked.
+     * @details Check if an IPv4 address is allowed by configured ranges.
      * @param ip IP address string.
-     * @return True if blocked, false otherwise.
+     * @return True if allowed, false otherwise.
      */
-    bool isBlocked(const std::string& ip) const;
+    bool isAllowed(const std::string& ip) const;
 
 private:
-    std::vector<IpRange> blockedRanges_;
+    std::vector<std::pair<std::uint32_t, std::uint32_t>> allowedRanges_;
 };
