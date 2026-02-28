@@ -6,8 +6,30 @@
 #include "Config.h"
 #include "LoadBalancer.h"
 #include "Logger.h"
+#include "MetricsReporter.h"
 #include <iostream>
+#include <random>
 #include <string>
+
+/**
+ * @brief Randomly enqueue new requests to simulate live incoming traffic.
+ * @return Number of new requests added this cycle.
+ */
+static int simulateIncomingRequests(LoadBalancer& balancer) {
+    static std::mt19937 engine(std::random_device{}());
+    std::bernoulli_distribution burstChance(0.70);
+    std::uniform_int_distribution<int> newRequestDist(1, 10);
+
+    if (!burstChance(engine)) {
+        return 0;
+    }
+
+    const int newRequests = newRequestDist(engine);
+    for (int i = 0; i < newRequests; ++i) {
+        balancer.enqueueRequest(makeRandomRequest());
+    }
+    return newRequests;
+}
 
 int main() {
     // load the configuration for the load balancer, this will be used to configure the load balancer
@@ -36,11 +58,18 @@ int main() {
         balancer.enqueueRequest(makeRandomRequest());
     }
 
-    logger.log("Load balancer initialized.");
-    logger.log("Initial requests enqueued: " + std::to_string(initialRequestCount));
+    LoadBalancerMetrics metrics = initializeMetrics(balancer);
+    logSimulationStartSnapshot(logger, balancer, initialServers, runCycles, initialRequestCount);
 
     int cyclesRun = 0;
     for (int i = 0; i < runCycles; ++i) {
+        const int newRequests = simulateIncomingRequests(balancer);
+        if (newRequests > 0) {
+            logger.log("Clock " + std::to_string(balancer.getClock()) +
+                       ": Incoming traffic -> enqueued " + std::to_string(newRequests) +
+                       " new request(s)");
+        }
+
         // dispatch the requests to the servers
         balancer.dispatchToServers(logger);
         // tick the clock
@@ -53,14 +82,12 @@ int main() {
             balancer.evaluateScaling(config.minQueuePerServer, config.maxQueuePerServer, logger);
         }
 
-        // if there are no pending requests, break the loop
-        if (!balancer.hasPendingRequests()) {
-            break;
-        }
+        updateMetrics(metrics, balancer, newRequests);
     }
+    logSimulationEndSummary(logger, balancer, metrics, initialServers, cyclesRun);
 
     std::cout << "Simulation complete. Servers: " << balancer.getServerCount()
-              << ", Requests: " << initialRequestCount
+              << ", Requests: " << balancer.getTotalRequestsCount()
               << ", Cycles run: " << cyclesRun
               << ", Requests handled: " << balancer.getTotalRequestsHandledCount()
               << ", Requests remaining: " << balancer.getTotalRequestsRemainingCount()

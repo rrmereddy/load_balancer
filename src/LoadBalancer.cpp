@@ -9,7 +9,15 @@
 #include <sstream>
 
 LoadBalancer::LoadBalancer(int initialServers)
-: requestQueue_(), servers_(), clock_(0), nextServerId_(1), totalRequests_(0), totalRequestsHandled_(0), pendingScaleDown_(0) {
+: requestQueue_(),
+  servers_(),
+  clock_(0),
+  nextServerId_(1),
+  totalRequests_(0),
+  totalRequestsHandled_(0),
+  pendingScaleDown_(0),
+  totalServersAdded_(0),
+  totalServersRemoved_(0) {
     if (initialServers < 0) {
         initialServers = 0;
     }
@@ -24,6 +32,47 @@ int LoadBalancer::getServerCount() const {
 
 std::size_t LoadBalancer::getQueueSize() const {
     return requestQueue_.size();
+}
+
+std::vector<Request> LoadBalancer::getQueueSnapshot(std::size_t maxItems) const {
+    std::vector<Request> snapshot;
+    if (maxItems == 0 || requestQueue_.empty()) {
+        return snapshot;
+    }
+
+    std::queue<Request> queueCopy = requestQueue_;
+    while (!queueCopy.empty() && snapshot.size() < maxItems) {
+        snapshot.push_back(queueCopy.front());
+        queueCopy.pop();
+    }
+    return snapshot;
+}
+
+std::vector<ServerSnapshot> LoadBalancer::getServerSnapshots() const {
+    std::vector<ServerSnapshot> snapshot;
+    snapshot.reserve(servers_.size());
+    for (const auto& server : servers_) {
+        ServerSnapshot item;
+        item.id = server.getId();
+        item.busy = server.isBusy();
+        item.request = item.busy ? server.getCurrentRequest() : Request();
+        snapshot.push_back(item);
+    }
+    return snapshot;
+}
+
+int LoadBalancer::getActiveServerCount() const {
+    int active = 0;
+    for (const auto& server : servers_) {
+        if (server.isBusy()) {
+            ++active;
+        }
+    }
+    return active;
+}
+
+int LoadBalancer::getIdleServerCount() const {
+    return static_cast<int>(servers_.size()) - getActiveServerCount();
 }
 
 void LoadBalancer::enqueueRequest(const Request& request) {
@@ -126,6 +175,7 @@ void LoadBalancer::evaluateScaling(int minQueuePerServer, int maxQueuePerServer,
     if (serverCount == 0) {
         if (queueSize > 0) {
             addServer();
+            ++totalServersAdded_;
             std::ostringstream line;
             line << "Clock " << clock_ << ": Scale up -> added server, total servers: " << servers_.size();
             logger.log(line.str());
@@ -158,6 +208,9 @@ void LoadBalancer::evaluateScaling(int minQueuePerServer, int maxQueuePerServer,
              << " server(s), average queue per server is " << queuePerServer
              << ", total servers: " << servers_.size();
         logger.log(line.str());
+        if (addedServers > 0) {
+            totalServersAdded_ += addedServers;
+        }
         return;
     }
     // if the queue size is less than the min queue per server, remove a server if possible
@@ -190,6 +243,7 @@ bool LoadBalancer::removeOneIdleServer(Logger& logger) {
             line << "Clock " << clock_ << ": Scale down -> removed idle server " << removedServerId
                  << ", total servers: " << servers_.size();
             logger.log(line.str());
+            ++totalServersRemoved_;
             return true;
         }
     }
@@ -219,4 +273,12 @@ int LoadBalancer::getTotalRequestsHandledCount() const {
  */
 int LoadBalancer::getTotalRequestsRemainingCount() const {
     return totalRequests_ - totalRequestsHandled_;
+}
+
+int LoadBalancer::getTotalServersAddedCount() const {
+    return totalServersAdded_;
+}
+
+int LoadBalancer::getTotalServersRemovedCount() const {
+    return totalServersRemoved_;
 }

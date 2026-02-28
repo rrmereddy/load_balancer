@@ -13,6 +13,15 @@
 class Logger;
 
 /**
+ * @details Represents a snapshot of one server at a point in time.
+ */
+struct ServerSnapshot {
+    int id;
+    bool busy;
+    Request request;
+};
+
+/**
  * @details Manages a queue of requests and a pool of web servers.
  */
 class LoadBalancer {
@@ -34,6 +43,31 @@ public:
      * @return Queue size.
      */
     std::size_t getQueueSize() const;
+
+    /**
+     * @details Get a non-destructive snapshot of up to maxItems queued requests.
+     * @param maxItems Maximum number of queued requests to include.
+     * @return Requests from the front of the queue.
+     */
+    std::vector<Request> getQueueSnapshot(std::size_t maxItems) const;
+
+    /**
+     * @details Get a snapshot of every server and its current state.
+     * @return Vector of server snapshots.
+     */
+    std::vector<ServerSnapshot> getServerSnapshots() const;
+
+    /**
+     * @details Get the number of currently active (busy) servers.
+     * @return Active server count.
+     */
+    int getActiveServerCount() const;
+
+    /**
+     * @details Get the number of currently inactive (idle) servers.
+     * @return Idle server count.
+     */
+    int getIdleServerCount() const;
 
     /**
      * @details Enqueue a new request.
@@ -101,6 +135,18 @@ public:
      */
     int getTotalRequestsRemainingCount() const;
 
+    /**
+     * @details Get the total number of servers added by scaling.
+     * @return Servers added.
+     */
+    int getTotalServersAddedCount() const;
+
+    /**
+     * @details Get the total number of servers removed by scaling.
+     * @return Servers removed.
+     */
+    int getTotalServersRemovedCount() const;
+
 private:
     /**
      * @details Remove one idle server if any and if requested.
@@ -122,4 +168,6 @@ private:
     int totalRequests_;
     int totalRequestsHandled_;
     int pendingScaleDown_;
+    int totalServersAdded_;
+    int totalServersRemoved_;
 };
