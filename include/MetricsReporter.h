@@ -1,6 +1,7 @@
 #pragma once
 
 #include "LoadBalancer.h"
+#include <string>
 
 class Logger;
 
@@ -47,6 +48,7 @@ void updateMetrics(
  */
 void logSimulationStartSnapshot(
     Logger& logger,
+    const std::string& label,
     const LoadBalancer& balancer,
     int initialServers,
     int runCycles,
@@ -62,6 +64,7 @@ void logSimulationStartSnapshot(
  */
 void logSimulationEndSummary(
     Logger& logger,
+    const std::string& label,
     const LoadBalancer& balancer,
     const LoadBalancerMetrics& metrics,
     int initialServers,
