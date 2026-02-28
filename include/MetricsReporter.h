@@ -13,6 +13,7 @@ struct LoadBalancerMetrics {
     long long queueSizeAccumulator;
     int queueSamples;
     int totalIncomingRequests;
+    int totalRejectedRequests;
     int minServersObserved;
     int maxServersObserved;
 };
@@ -30,7 +31,11 @@ LoadBalancerMetrics initializeMetrics(const LoadBalancer& balancer);
  * @param balancer Current load balancer.
  * @param newRequests Number of incoming requests generated this cycle.
  */
-void updateMetrics(LoadBalancerMetrics& metrics, const LoadBalancer& balancer, int newRequests);
+void updateMetrics(
+    LoadBalancerMetrics& metrics,
+    const LoadBalancer& balancer,
+    int acceptedRequests,
+    int rejectedRequests);
 
 /**
  * @details Emit the start-of-run snapshot section.

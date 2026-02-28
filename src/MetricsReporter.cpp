@@ -87,13 +87,19 @@ LoadBalancerMetrics initializeMetrics(const LoadBalancer& balancer) {
     metrics.queueSizeAccumulator = static_cast<long long>(startingQueueSize);
     metrics.queueSamples = 1;
     metrics.totalIncomingRequests = 0;
+    metrics.totalRejectedRequests = 0;
     metrics.minServersObserved = balancer.getServerCount();
     metrics.maxServersObserved = balancer.getServerCount();
     return metrics;
 }
 
-void updateMetrics(LoadBalancerMetrics& metrics, const LoadBalancer& balancer, int newRequests) {
-    metrics.totalIncomingRequests += newRequests;
+void updateMetrics(
+    LoadBalancerMetrics& metrics,
+    const LoadBalancer& balancer,
+    int acceptedRequests,
+    int rejectedRequests) {
+    metrics.totalIncomingRequests += acceptedRequests;
+    metrics.totalRejectedRequests += rejectedRequests;
     const std::size_t queueSize = balancer.getQueueSize();
     metrics.peakQueueSize = std::max(metrics.peakQueueSize, queueSize);
     metrics.queueSizeAccumulator += static_cast<long long>(queueSize);
@@ -144,6 +150,12 @@ void logSimulationEndSummary(
                                        ? (100.0 * static_cast<double>(requestsHandled)) /
                                              static_cast<double>(totalRequests)
                                        : 0.0;
+    const int totalGeneratedDuringRun = metrics.totalIncomingRequests + metrics.totalRejectedRequests;
+    const int totalGeneratedIncludingInitial = totalRequests + metrics.totalRejectedRequests;
+    const double rejectionRatio = totalGeneratedIncludingInitial > 0
+                                      ? (100.0 * static_cast<double>(metrics.totalRejectedRequests)) /
+                                            static_cast<double>(totalGeneratedIncludingInitial)
+                                      : 0.0;
 
     // log the metrics
     logger.log("=== Simulation End Summary ===");
@@ -152,8 +164,9 @@ void logSimulationEndSummary(
     logger.log("Ending queue size: " + std::to_string(endingQueueSize));
     logger.log("Task time range (cycles): " + std::to_string(kTaskTimeMinCycles) + "-" +
                std::to_string(kTaskTimeMaxCycles));
-    logger.log("Total requests enqueued/generated: " + std::to_string(totalRequests));
-    logger.log("Incoming requests generated during run: " + std::to_string(metrics.totalIncomingRequests));
+    logger.log("Total requests accepted/enqueued: " + std::to_string(totalRequests));
+    logger.log("Incoming requests accepted during run: " + std::to_string(metrics.totalIncomingRequests));
+    logger.log("Total generated during run (accepted + rejected): " + std::to_string(totalGeneratedDuringRun));
     logger.log("Total requests handled/completed: " + std::to_string(requestsHandled));
     logger.log("Requests remaining at end: " + std::to_string(requestsRemaining));
     logger.log("Peak queue size observed: " + std::to_string(metrics.peakQueueSize));
@@ -169,9 +182,8 @@ void logSimulationEndSummary(
     logger.log("Throughput (handled per cycle): " + std::to_string(throughputPerCycle));
     logger.log("Completion ratio: " + std::to_string(completionRatio) + "%");
 
-    // Not yet implemented, will make an IP blocker
-    // simulate a DDoS attack by blocking IPs
-    logger.log("Rejected/discarded requests: 0 (no rejection path implemented)");
+    logger.log("Rejected/discarded requests: " + std::to_string(metrics.totalRejectedRequests));
+    logger.log("Rejection ratio: " + std::to_string(rejectionRatio) + "%");
 
     // log the and server snapshots
     logServerSnapshot(logger, balancer, "End-of-run", kServerSampleSize);
