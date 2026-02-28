@@ -8,6 +8,7 @@
 #include "Request.h"
 #include "WebServer.h"
 #include <queue>
+#include <string>
 #include <vector>
 
 class Logger;
@@ -30,7 +31,7 @@ public:
      * @details Construct a new LoadBalancer.
      * @param initialServers Number of servers to start with.
      */
-    explicit LoadBalancer(int initialServers);
+    explicit LoadBalancer(int initialServers, const std::string& balancerLabel = "LoadBalancer");
 
     /**
      * @details Get the number of servers in the pool.
@@ -148,6 +149,8 @@ public:
     int getTotalServersRemovedCount() const;
 
 private:
+    std::string formatServerTag(const WebServer& server) const;
+
     /**
      * @details Remove one idle server if any and if requested.
      * @param logger Logger for removal events.
@@ -170,4 +173,5 @@ private:
     int pendingScaleDown_;
     int totalServersAdded_;
     int totalServersRemoved_;
+    std::string balancerLabel_;
 };

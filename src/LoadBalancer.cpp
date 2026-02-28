@@ -8,7 +8,7 @@
 #include <iterator>
 #include <sstream>
 
-LoadBalancer::LoadBalancer(int initialServers)
+LoadBalancer::LoadBalancer(int initialServers, const std::string& balancerLabel)
 : requestQueue_(),
   servers_(),
   clock_(0),
@@ -17,7 +17,8 @@ LoadBalancer::LoadBalancer(int initialServers)
   totalRequestsHandled_(0),
   pendingScaleDown_(0),
   totalServersAdded_(0),
-  totalServersRemoved_(0) {
+  totalServersRemoved_(0),
+  balancerLabel_(balancerLabel.empty() ? "LoadBalancer" : balancerLabel) {
     if (initialServers < 0) {
         initialServers = 0;
     }
@@ -105,7 +106,7 @@ bool LoadBalancer::dispatchToServers(Logger& logger) {
             if (server.handleRequest()) {
                 // log the request
                 std::ostringstream line;
-                line << "Clock " << clock_ << ": Server " << server.getId()
+                line << "Clock " << clock_ << ": " << formatServerTag(server)
                      << " completed request from " << server.getCurrentRequest().ipIn << " to " << server.getCurrentRequest().ipOut;
                 logger.log(line.str());
                 // clear the request
@@ -115,7 +116,7 @@ bool LoadBalancer::dispatchToServers(Logger& logger) {
             }
             // log the request
             std::ostringstream line;
-            line << "Clock " << clock_ << ": Server " << server.getId()
+            line << "Clock " << clock_ << ": " << formatServerTag(server)
                  << " working on request from " << server.getCurrentRequest().ipIn << " to " << server.getCurrentRequest().ipOut
                  << " finishing in " << server.getCurrentRequest().timeCycles << " cycles";
             logger.log(line.str());
@@ -132,7 +133,7 @@ bool LoadBalancer::dispatchToServers(Logger& logger) {
 
         // log the request
         std::ostringstream line;
-        line << "Clock " << clock_ << ": Server " << server.getId()
+        line << "Clock " << clock_ << ": " << formatServerTag(server)
              << " assigned request from " << request.ipIn << " to " << request.ipOut;
         logger.log(line.str());
 
@@ -177,7 +178,8 @@ void LoadBalancer::evaluateScaling(int minQueuePerServer, int maxQueuePerServer,
             addServer();
             ++totalServersAdded_;
             std::ostringstream line;
-            line << "Clock " << clock_ << ": Scale up -> added server, total servers: " << servers_.size();
+            line << "Clock " << clock_ << ": [" << balancerLabel_
+                 << "] Scale up -> added server, total servers: " << servers_.size();
             logger.log(line.str());
         }
         return;
@@ -204,7 +206,7 @@ void LoadBalancer::evaluateScaling(int minQueuePerServer, int maxQueuePerServer,
 
         // log the scale up
         std::ostringstream line;
-        line << "Clock " << clock_ << ": Scale up -> added " << addedServers
+        line << "Clock " << clock_ << ": [" << balancerLabel_ << "] Scale up -> added " << addedServers
              << " server(s), average queue per server is " << queuePerServer
              << ", total servers: " << servers_.size();
         logger.log(line.str());
@@ -221,7 +223,8 @@ void LoadBalancer::evaluateScaling(int minQueuePerServer, int maxQueuePerServer,
 
             // log the deferred scale down
             std::ostringstream line;
-            line << "Clock " << clock_ << ": Scale down deferred -> no idle server available, pending removals: "
+            line << "Clock " << clock_ << ": [" << balancerLabel_
+                 << "] Scale down deferred -> no idle server available, pending removals: "
                  << pendingScaleDown_;
             logger.log(line.str());
         }
@@ -240,7 +243,8 @@ bool LoadBalancer::removeOneIdleServer(Logger& logger) {
             servers_.erase(std::next(it).base());
 
             std::ostringstream line;
-            line << "Clock " << clock_ << ": Scale down -> removed idle server " << removedServerId
+            line << "Clock " << clock_ << ": [" << balancerLabel_ << "] Scale down -> removed idle server "
+                 << removedServerId
                  << ", total servers: " << servers_.size();
             logger.log(line.str());
             ++totalServersRemoved_;
@@ -281,4 +285,8 @@ int LoadBalancer::getTotalServersAddedCount() const {
 
 int LoadBalancer::getTotalServersRemovedCount() const {
     return totalServersRemoved_;
+}
+
+std::string LoadBalancer::formatServerTag(const WebServer& server) const {
+    return "[" + balancerLabel_ + "] Server " + std::to_string(server.getId());
 }
