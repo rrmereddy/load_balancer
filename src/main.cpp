@@ -9,6 +9,7 @@
 #include "Logger.h"
 #include "MetricsReporter.h"
 #include "Request.h"
+#include "Switch.h"
 #include <iostream>
 #include <random>
 #include <string>
@@ -18,8 +19,10 @@
  * @return Accepted and rejected request counts for this cycle.
  */
 struct IncomingTrafficResult {
-    int acceptedRequests;
-    int rejectedRequests;
+    int acceptedProcessingRequests;
+    int acceptedStreamingRequests;
+    int rejectedProcessingRequests;
+    int rejectedStreamingRequests;
 };
 
 static Request makeBiasedRequest(const IpBlocker& ipBlocker, double blockedTrafficRate) {
@@ -50,14 +53,15 @@ static Request makeBiasedRequest(const IpBlocker& ipBlocker, double blockedTraff
 }
 
 static IncomingTrafficResult simulateIncomingRequests(
-    LoadBalancer& balancer,
+    Switch& switchRouter,
     const IpBlocker& ipBlocker,
     double blockedTrafficRate,
+    int currentClock,
     Logger& logger) {
     static std::mt19937 engine(std::random_device{}());
     std::bernoulli_distribution burstChance(0.70);
     std::uniform_int_distribution<int> newRequestDist(1, 10);
-    IncomingTrafficResult result = {0, 0};
+    IncomingTrafficResult result = {0, 0, 0, 0};
 
     if (!burstChance(engine)) {
         return result;
@@ -68,26 +72,44 @@ static IncomingTrafficResult simulateIncomingRequests(
     for (int i = 0; i < newRequests; ++i) {
         const Request request = makeBiasedRequest(ipBlocker, blockedTrafficRate);
         if (!ipBlocker.isAllowed(request.ipIn)) {
-            ++result.rejectedRequests;
+            if (request.jobType == JobType::Streaming) {
+                ++result.rejectedStreamingRequests;
+            } else {
+                ++result.rejectedProcessingRequests;
+            }
             if (firstRejectedIp.empty()) {
                 firstRejectedIp = request.ipIn;
             }
             continue;
         }
-        balancer.enqueueRequest(request);
-        ++result.acceptedRequests;
+        switchRouter.routeRequest(request);
+        if (request.jobType == JobType::Streaming) {
+            ++result.acceptedStreamingRequests;
+        } else {
+            ++result.acceptedProcessingRequests;
+        }
     }
 
-    if (result.acceptedRequests > 0) {
-        logger.log("Clock " + std::to_string(balancer.getClock()) +
-                   ": Incoming traffic -> accepted " + std::to_string(result.acceptedRequests) +
+    const int totalAccepted = result.acceptedProcessingRequests + result.acceptedStreamingRequests;
+    const int totalRejected = result.rejectedProcessingRequests + result.rejectedStreamingRequests;
+
+    if (totalAccepted > 0) {
+        logger.log("Clock " + std::to_string(currentClock) +
+                   ": Incoming traffic -> accepted " + std::to_string(totalAccepted) +
+                   " request(s), processing=" + std::to_string(result.acceptedProcessingRequests) +
+                   ", streaming=" + std::to_string(result.acceptedStreamingRequests));
+    }
+
+    if (totalRejected > 0) {
+        logger.log("Clock " + std::to_string(currentClock) +
+                   ": IP range blocker rejected " + std::to_string(totalRejected) +
+                   " request(s), processing=" + std::to_string(result.rejectedProcessingRequests) +
+                   ", streaming=" + std::to_string(result.rejectedStreamingRequests) +
                    " request(s)");
-    }
-
-    if (result.rejectedRequests > 0) {
-        logger.log("Clock " + std::to_string(balancer.getClock()) +
-                   ": IP range blocker rejected " + std::to_string(result.rejectedRequests) +
-                   " request(s), sample source IP: " + firstRejectedIp);
+        if (!firstRejectedIp.empty()) {
+            logger.log("Clock " + std::to_string(currentClock) +
+                       ": Sample rejected source IP: " + firstRejectedIp);
+        }
     }
     return result;
 }
@@ -107,8 +129,13 @@ int main() {
     std::cout << "Enter the number of cycles to run: ";
     std::cin >> runCycles;
 
-    // create the load balancer with the initial server count
-    LoadBalancer balancer(initialServers);
+    // split initial capacity across two balancers with minimal config changes
+    const int processingInitialServers = initialServers / 2;
+    const int streamingInitialServers = initialServers - processingInitialServers;
+
+    LoadBalancer processingBalancer(processingInitialServers, "Processing");
+    LoadBalancer streamingBalancer(streamingInitialServers, "Streaming");
+    Switch switchRouter(processingBalancer, streamingBalancer);
 
     // create the logger for the load balancer, this will be used to log the load balancer
     Logger logger(config.logFilePath);
@@ -124,57 +151,129 @@ int main() {
 
     // create the initial requests to enqueue
     const int initialRequestTarget = initialServers * 100;
-    int initialAcceptedRequests = 0;
-    int initialRejectedRequests = 0;
+    int initialAcceptedProcessingRequests = 0;
+    int initialAcceptedStreamingRequests = 0;
+    int initialRejectedProcessingRequests = 0;
+    int initialRejectedStreamingRequests = 0;
     std::string firstInitialRejectedIp;
     for (int i = 0; i < initialRequestTarget; ++i) {
         const Request request = makeBiasedRequest(ipBlocker, config.blockedTrafficSimulationRate);
         if (!ipBlocker.isAllowed(request.ipIn)) {
-            ++initialRejectedRequests;
+            if (request.jobType == JobType::Streaming) {
+                ++initialRejectedStreamingRequests;
+            } else {
+                ++initialRejectedProcessingRequests;
+            }
             if (firstInitialRejectedIp.empty()) {
                 firstInitialRejectedIp = request.ipIn;
             }
             continue;
         }
-        balancer.enqueueRequest(request);
-        ++initialAcceptedRequests;
+        switchRouter.routeRequest(request);
+        if (request.jobType == JobType::Streaming) {
+            ++initialAcceptedStreamingRequests;
+        } else {
+            ++initialAcceptedProcessingRequests;
+        }
     }
+    const int initialAcceptedRequests = initialAcceptedProcessingRequests + initialAcceptedStreamingRequests;
+    const int initialRejectedRequests = initialRejectedProcessingRequests + initialRejectedStreamingRequests;
     if (initialRejectedRequests > 0) {
         logger.log("Initial request load -> accepted " + std::to_string(initialAcceptedRequests) +
+                   " (processing=" + std::to_string(initialAcceptedProcessingRequests) +
+                   ", streaming=" + std::to_string(initialAcceptedStreamingRequests) + ")" +
                    ", rejected " + std::to_string(initialRejectedRequests) +
+                   " (processing=" + std::to_string(initialRejectedProcessingRequests) +
+                   ", streaming=" + std::to_string(initialRejectedStreamingRequests) + ")" +
                    ", sample source IP: " + firstInitialRejectedIp);
     }
 
-    LoadBalancerMetrics metrics = initializeMetrics(balancer);
-    metrics.totalRejectedRequests += initialRejectedRequests;
-    logSimulationStartSnapshot(logger, balancer, initialServers, runCycles, initialAcceptedRequests);
+    LoadBalancerMetrics processingMetrics = initializeMetrics(processingBalancer);
+    LoadBalancerMetrics streamingMetrics = initializeMetrics(streamingBalancer);
 
+    logSimulationStartSnapshot(
+        logger,
+        "Processing",
+        processingBalancer,
+        processingInitialServers,
+        runCycles,
+        processingBalancer.getTotalRequestsCount());
+    logSimulationStartSnapshot(
+        logger,
+        "Streaming",
+        streamingBalancer,
+        streamingInitialServers,
+        runCycles,
+        streamingBalancer.getTotalRequestsCount());
+    
+    // start the simulation run
+    logger.log("=== Simulation Run ===");
     int cyclesRun = 0;
     for (int i = 0; i < runCycles; ++i) {
         const IncomingTrafficResult newRequests =
-            simulateIncomingRequests(balancer, ipBlocker, config.blockedTrafficSimulationRate, logger);
+            simulateIncomingRequests(
+                switchRouter,
+                ipBlocker,
+                config.blockedTrafficSimulationRate,
+                processingBalancer.getClock(),
+                logger);
 
         // dispatch the requests to the servers
-        balancer.dispatchToServers(logger);
+        processingBalancer.dispatchToServers(logger);
+        streamingBalancer.dispatchToServers(logger);
         // tick the clock
-        balancer.tick();
+        processingBalancer.tick();
+        streamingBalancer.tick();
         // increment the number of cycles run
         ++cyclesRun;
 
         // check whether scaling is required for the servers to help handle the requests
         if (config.scalingCheckInterval > 0 && (cyclesRun % config.scalingCheckInterval) == 0) {
-            balancer.evaluateScaling(config.minQueuePerServer, config.maxQueuePerServer, logger);
+            processingBalancer.evaluateScaling(config.minQueuePerServer, config.maxQueuePerServer, logger);
+            streamingBalancer.evaluateScaling(config.minQueuePerServer, config.maxQueuePerServer, logger);
         }
 
-        updateMetrics(metrics, balancer, newRequests.acceptedRequests, newRequests.rejectedRequests);
+        updateMetrics(
+            processingMetrics,
+            processingBalancer,
+            newRequests.acceptedProcessingRequests,
+            newRequests.rejectedProcessingRequests);
+        updateMetrics(
+            streamingMetrics,
+            streamingBalancer,
+            newRequests.acceptedStreamingRequests,
+            newRequests.rejectedStreamingRequests);
     }
-    logSimulationEndSummary(logger, balancer, metrics, initialServers, cyclesRun);
+    processingMetrics.totalRejectedRequests += initialRejectedProcessingRequests;
+    streamingMetrics.totalRejectedRequests += initialRejectedStreamingRequests;
 
-    std::cout << "Simulation complete. Servers: " << balancer.getServerCount()
-              << ", Requests: " << balancer.getTotalRequestsCount()
+    logSimulationEndSummary(
+        logger,
+        "Processing",
+        processingBalancer,
+        processingMetrics,
+        processingInitialServers,
+        cyclesRun);
+    logSimulationEndSummary(
+        logger,
+        "Streaming",
+        streamingBalancer,
+        streamingMetrics,
+        streamingInitialServers,
+        cyclesRun);
+
+    const int totalServers = processingBalancer.getServerCount() + streamingBalancer.getServerCount();
+    const int totalRequests = processingBalancer.getTotalRequestsCount() + streamingBalancer.getTotalRequestsCount();
+    const int totalHandled =
+        processingBalancer.getTotalRequestsHandledCount() + streamingBalancer.getTotalRequestsHandledCount();
+    const int totalRemaining =
+        processingBalancer.getTotalRequestsRemainingCount() + streamingBalancer.getTotalRequestsRemainingCount();
+
+    std::cout << "Simulation complete. Servers: " << totalServers
+              << ", Requests: " << totalRequests
               << ", Cycles run: " << cyclesRun
-              << ", Requests handled: " << balancer.getTotalRequestsHandledCount()
-              << ", Requests remaining: " << balancer.getTotalRequestsRemainingCount()
+              << ", Requests handled: " << totalHandled
+              << ", Requests remaining: " << totalRemaining
               << '\n';
 
     return 0;

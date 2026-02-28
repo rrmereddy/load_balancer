@@ -110,29 +110,32 @@ void updateMetrics(
 
 void logSimulationStartSnapshot(
     Logger& logger,
+    const std::string& label,
     const LoadBalancer& balancer,
     int initialServers,
     int runCycles,
     int initialRequestCount) {
-    logger.log("=== Simulation Start Snapshot ===");
-    logger.log("Configured run: initial servers=" + std::to_string(initialServers) +
+    const std::string prefix = "[" + label + "] ";
+    logger.log(prefix + "=== Simulation Start Snapshot ===");
+    logger.log(prefix + "Configured run: initial servers=" + std::to_string(initialServers) +
                ", run cycles=" + std::to_string(runCycles));
-    logger.log("Requests at start of log: " + std::to_string(initialRequestCount));
-    logger.log("Starting queue size: " + std::to_string(balancer.getQueueSize()));
-    logger.log("Task time range (cycles): " + std::to_string(kTaskTimeMinCycles) + "-" +
+    logger.log(prefix + "Requests at start of log: " + std::to_string(initialRequestCount));
+    logger.log(prefix + "Starting queue size: " + std::to_string(balancer.getQueueSize()));
+    logger.log(prefix + "Task time range (cycles): " + std::to_string(kTaskTimeMinCycles) + "-" +
                std::to_string(kTaskTimeMaxCycles));
-    logQueueSnapshot(logger, balancer, "Start-of-log", kQueueSampleSize);
-    logger.log("=== Cycle Activity ===");
+    logQueueSnapshot(logger, balancer, prefix + "Start-of-log", kQueueSampleSize);
 }
 
 
 // a bunch of metrics to log at the end of the simulation
 void logSimulationEndSummary(
     Logger& logger,
+    const std::string& label,
     const LoadBalancer& balancer,
     const LoadBalancerMetrics& metrics,
     int initialServers,
     int cyclesRun) {
+    const std::string prefix = "[" + label + "] ";
     const std::size_t endingQueueSize = balancer.getQueueSize();
     const int totalRequests = balancer.getTotalRequestsCount();
     const int requestsHandled = balancer.getTotalRequestsHandledCount();
@@ -158,33 +161,33 @@ void logSimulationEndSummary(
                                       : 0.0;
 
     // log the metrics
-    logger.log("=== Simulation End Summary ===");
-    logger.log("Cycles run: " + std::to_string(cyclesRun));
-    logger.log("Starting queue size: " + std::to_string(metrics.startingQueueSize));
-    logger.log("Ending queue size: " + std::to_string(endingQueueSize));
-    logger.log("Task time range (cycles): " + std::to_string(kTaskTimeMinCycles) + "-" +
+    logger.log(prefix + "=== Simulation End Summary ===");
+    logger.log(prefix + "Cycles run: " + std::to_string(cyclesRun));
+    logger.log(prefix + "Starting queue size: " + std::to_string(metrics.startingQueueSize));
+    logger.log(prefix + "Ending queue size: " + std::to_string(endingQueueSize));
+    logger.log(prefix + "Task time range (cycles): " + std::to_string(kTaskTimeMinCycles) + "-" +
                std::to_string(kTaskTimeMaxCycles));
-    logger.log("Total requests accepted/enqueued: " + std::to_string(totalRequests));
-    logger.log("Incoming requests accepted during run: " + std::to_string(metrics.totalIncomingRequests));
-    logger.log("Total generated during run (accepted + rejected): " + std::to_string(totalGeneratedDuringRun));
-    logger.log("Total requests handled/completed: " + std::to_string(requestsHandled));
-    logger.log("Requests remaining at end: " + std::to_string(requestsRemaining));
-    logger.log("Peak queue size observed: " + std::to_string(metrics.peakQueueSize));
-    logger.log("Average queue size observed: " + std::to_string(averageQueueSize));
-    logger.log("Server count start/end: " + std::to_string(initialServers) + " -> " +
+    logger.log(prefix + "Total requests accepted/enqueued: " + std::to_string(totalRequests));
+    logger.log(prefix + "Incoming requests accepted during run: " + std::to_string(metrics.totalIncomingRequests));
+    logger.log(prefix + "Total generated during run (accepted + rejected): " + std::to_string(totalGeneratedDuringRun));
+    logger.log(prefix + "Total requests handled/completed: " + std::to_string(requestsHandled));
+    logger.log(prefix + "Requests remaining at end: " + std::to_string(requestsRemaining));
+    logger.log(prefix + "Peak queue size observed: " + std::to_string(metrics.peakQueueSize));
+    logger.log(prefix + "Average queue size observed: " + std::to_string(averageQueueSize));
+    logger.log(prefix + "Server count start/end: " + std::to_string(initialServers) + " -> " +
                std::to_string(balancer.getServerCount()));
-    logger.log("Server min/max observed: " + std::to_string(metrics.minServersObserved) + " / " +
+    logger.log(prefix + "Server min/max observed: " + std::to_string(metrics.minServersObserved) + " / " +
                std::to_string(metrics.maxServersObserved));
-    logger.log("End-status active/inactive servers: " + std::to_string(balancer.getActiveServerCount()) + " / " +
+    logger.log(prefix + "End-status active/inactive servers: " + std::to_string(balancer.getActiveServerCount()) + " / " +
                std::to_string(balancer.getIdleServerCount()));
-    logger.log("Servers added/removed by scaling: " + std::to_string(balancer.getTotalServersAddedCount()) + " / " +
+    logger.log(prefix + "Servers added/removed by scaling: " + std::to_string(balancer.getTotalServersAddedCount()) + " / " +
                std::to_string(balancer.getTotalServersRemovedCount()));
-    logger.log("Throughput (handled per cycle): " + std::to_string(throughputPerCycle));
-    logger.log("Completion ratio: " + std::to_string(completionRatio) + "%");
+    logger.log(prefix + "Throughput (handled per cycle): " + std::to_string(throughputPerCycle));
+    logger.log(prefix + "Completion ratio: " + std::to_string(completionRatio) + "%");
 
-    logger.log("Rejected/discarded requests: " + std::to_string(metrics.totalRejectedRequests));
-    logger.log("Rejection ratio: " + std::to_string(rejectionRatio) + "%");
+    logger.log(prefix + "Rejected/discarded requests: " + std::to_string(metrics.totalRejectedRequests));
+    logger.log(prefix + "Rejection ratio: " + std::to_string(rejectionRatio) + "%");
 
     // log the and server snapshots
-    logServerSnapshot(logger, balancer, "End-of-run", kServerSampleSize);
+    logServerSnapshot(logger, balancer, prefix + "End-of-run", kServerSampleSize);
 }
