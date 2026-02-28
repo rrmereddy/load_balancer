@@ -29,6 +29,7 @@ std::string formatRequestForLog(const Request& request) {
     return line.str();
 }
 
+// helper function to format a double to a string with a given precision
 std::string formatDouble(double value, int precision = 2) {
     std::ostringstream stream;
     stream << std::fixed << std::setprecision(precision) << value;
@@ -86,6 +87,7 @@ void logServerSnapshot(Logger& logger, const LoadBalancer& balancer, const std::
 
 } // namespace
 
+// initializes the metrics for a given balancer
 LoadBalancerMetrics initializeMetrics(const LoadBalancer& balancer) {
     const std::size_t startingQueueSize = balancer.getQueueSize();
     LoadBalancerMetrics metrics;
@@ -100,6 +102,7 @@ LoadBalancerMetrics initializeMetrics(const LoadBalancer& balancer) {
     return metrics;
 }
 
+// updates the metrics for a given balancer
 void updateMetrics(
     LoadBalancerMetrics& metrics,
     const LoadBalancer& balancer,
@@ -115,6 +118,7 @@ void updateMetrics(
     metrics.maxServersObserved = std::max(metrics.maxServersObserved, balancer.getServerCount());
 }
 
+// logs the start of the simulation snapshot
 void logSimulationStartSnapshot(
     Logger& logger,
     const std::string& label,
@@ -179,7 +183,8 @@ void logSimulationEndSummary(
     logger.log(prefix + "  Cycles run: " + std::to_string(cyclesRun));
     logger.log(prefix + "  Task time range (cycles): " + std::to_string(kTaskTimeMinCycles) + "-" +
                std::to_string(kTaskTimeMaxCycles));
-
+    
+    // logging the request metrics
     logger.log(prefix + "");
     logger.log(prefix + "Requests");
     logger.log(prefix + "  Accepted/enqueued total: " + std::to_string(totalRequests));
@@ -189,6 +194,7 @@ void logSimulationEndSummary(
     logger.log(prefix + "  Remaining at end: " + std::to_string(requestsRemaining));
     logger.log(prefix + "  Rejected/discarded: " + std::to_string(metrics.totalRejectedRequests));
 
+    // logging the queue metrics
     logger.log(prefix + "");
     logger.log(prefix + "Queue");
     logger.log(prefix + "  Start -> end size: " + std::to_string(metrics.startingQueueSize) + " -> " +
@@ -196,6 +202,7 @@ void logSimulationEndSummary(
     logger.log(prefix + "  Peak size: " + std::to_string(metrics.peakQueueSize));
     logger.log(prefix + "  Average size: " + formatDouble(averageQueueSize));
 
+    // logging the server metrics
     logger.log(prefix + "");
     logger.log(prefix + "Servers");
     logger.log(prefix + "  Count start -> end: " + std::to_string(initialServers) + " -> " +
@@ -207,6 +214,7 @@ void logSimulationEndSummary(
     logger.log(prefix + "  Scaling added/removed: " + std::to_string(balancer.getTotalServersAddedCount()) + " / " +
                std::to_string(balancer.getTotalServersRemovedCount()));
 
+    // logging the performance metrics
     logger.log(prefix + "");
     logger.log(prefix + "Performance");
     logger.log(prefix + "  Throughput (handled/cycle): " + formatDouble(throughputPerCycle));

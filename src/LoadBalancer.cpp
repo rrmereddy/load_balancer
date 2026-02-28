@@ -50,8 +50,13 @@ std::vector<Request> LoadBalancer::getQueueSnapshot(std::size_t maxItems) const 
 }
 
 std::vector<ServerSnapshot> LoadBalancer::getServerSnapshots() const {
+    // get the server snapshots
     std::vector<ServerSnapshot> snapshot;
+
+    // reserve the space for the server snapshots
     snapshot.reserve(servers_.size());
+
+    // for each server, add the server snapshot to the vector
     for (const auto& server : servers_) {
         ServerSnapshot item;
         item.id = server.getId();
@@ -62,6 +67,7 @@ std::vector<ServerSnapshot> LoadBalancer::getServerSnapshots() const {
     return snapshot;
 }
 
+// gets the number of active servers
 int LoadBalancer::getActiveServerCount() const {
     int active = 0;
     for (const auto& server : servers_) {
@@ -72,6 +78,7 @@ int LoadBalancer::getActiveServerCount() const {
     return active;
 }
 
+// gets the number of idle servers
 int LoadBalancer::getIdleServerCount() const {
     return static_cast<int>(servers_.size()) - getActiveServerCount();
 }
@@ -146,14 +153,17 @@ bool LoadBalancer::dispatchToServers(Logger& logger) {
     return dispatched;
 }
 
+// advances the clock by one cycle
 void LoadBalancer::tick() {
     ++clock_;
 }
 
+// adds a server to the load balancer
 void LoadBalancer::addServer() {
     servers_.push_back(WebServer(nextServerId_++));
 }
 
+// removes a server from the load balancer
 void LoadBalancer::removeServer() {
     for (auto it = servers_.rbegin(); it != servers_.rend(); ++it) {
         if (!it->isBusy()) {

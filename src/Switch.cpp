@@ -4,6 +4,7 @@ Switch::Switch(LoadBalancer& processingBalancer, LoadBalancer& streamingBalancer
     : processingBalancer_(processingBalancer), streamingBalancer_(streamingBalancer) {
 }
 
+// routes the request to the proper balancer based on the job type
 void Switch::routeRequest(const Request& request) {
     if (request.jobType == JobType::Streaming) {
         streamingBalancer_.enqueueRequest(request);

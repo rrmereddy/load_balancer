@@ -25,8 +25,14 @@ struct IncomingTrafficResult {
     int rejectedStreamingRequests;
 };
 
+
+// makes a biased request based on the blocked traffic rate
+// helps with simulating requests that are blocked or allowed
 static Request makeBiasedRequest(const IpBlocker& ipBlocker, double blockedTrafficRate) {
+
+    // create a random engine for the request
     static std::mt19937 engine(std::random_device{}());
+    // clamp the blocked traffic rate to be between 0 and 1
     double clampedRate = blockedTrafficRate;
     if (clampedRate < 0.0) {
         clampedRate = 0.0;
@@ -34,6 +40,7 @@ static Request makeBiasedRequest(const IpBlocker& ipBlocker, double blockedTraff
         clampedRate = 1.0;
     }
 
+    // generate a random boolean based on the blocked traffic rate
     const bool shouldBeBlocked = std::bernoulli_distribution(clampedRate)(engine);
     Request fallback = makeRandomRequest();
     bool fallbackBlocked = !ipBlocker.isAllowed(fallback.ipIn);
@@ -116,7 +123,6 @@ static IncomingTrafficResult simulateIncomingRequests(
 
 int main() {
     // load the configuration for the load balancer, this will be used to configure the load balancer
-    // TODO: Maybe add a way to load the configuration from a file?
     Config config = loadConfig();
 
     // take user input for the number of servers to start with
@@ -132,15 +138,19 @@ int main() {
     // split initial capacity across two balancers with minimal config changes
     const int processingInitialServers = initialServers / 2;
     const int streamingInitialServers = initialServers - processingInitialServers;
-
+    
+    // create the load balancers for the processing and streaming jobs
     LoadBalancer processingBalancer(processingInitialServers, "Processing");
     LoadBalancer streamingBalancer(streamingInitialServers, "Streaming");
+
+    // create the switch router for the load balancers
     Switch switchRouter(processingBalancer, streamingBalancer);
 
     // create the logger for the load balancer, this will be used to log the load balancer
     Logger logger(config.logFilePath);
 
     // configure allowed source ranges for the blocker
+    // makes sure that the allowed IP ranges are valid
     IpBlocker ipBlocker;
     for (const auto& range : config.allowedIpRanges) {
         if (!ipBlocker.addAllowedRange({range.start, range.end})) {
@@ -149,33 +159,38 @@ int main() {
     }
     logger.log("Blocked traffic simulation rate: " + std::to_string(config.blockedTrafficSimulationRate));
 
-    // create the initial requests to enqueue
+    // create the initial requests to enqueue for the load balancers
     const int initialRequestTarget = initialServers * 100;
     int initialAcceptedProcessingRequests = 0;
     int initialAcceptedStreamingRequests = 0;
     int initialRejectedProcessingRequests = 0;
     int initialRejectedStreamingRequests = 0;
-    std::string firstInitialRejectedIp;
+
+    // initialize the initial requests for the load balancers
     for (int i = 0; i < initialRequestTarget; ++i) {
         const Request request = makeBiasedRequest(ipBlocker, config.blockedTrafficSimulationRate);
+        // check if the request is blocked
         if (!ipBlocker.isAllowed(request.ipIn)) {
+            // if the request is blocked, increment the rejected requests for the load balancers
             if (request.jobType == JobType::Streaming) {
                 ++initialRejectedStreamingRequests;
             } else {
                 ++initialRejectedProcessingRequests;
             }
-            if (firstInitialRejectedIp.empty()) {
-                firstInitialRejectedIp = request.ipIn;
-            }
             continue;
         }
+        // route the request to the load balancer
         switchRouter.routeRequest(request);
+
+        // increment the accepted requests for the load balancers
         if (request.jobType == JobType::Streaming) {
             ++initialAcceptedStreamingRequests;
         } else {
             ++initialAcceptedProcessingRequests;
         }
     }
+
+    // log the initial requests and summary for the load balancers
     const int initialAcceptedRequests = initialAcceptedProcessingRequests + initialAcceptedStreamingRequests;
     const int initialRejectedRequests = initialRejectedProcessingRequests + initialRejectedStreamingRequests;
     if (initialRejectedRequests > 0) {
@@ -184,13 +199,14 @@ int main() {
                    ", streaming=" + std::to_string(initialAcceptedStreamingRequests) + ")" +
                    ", rejected " + std::to_string(initialRejectedRequests) +
                    " (processing=" + std::to_string(initialRejectedProcessingRequests) +
-                   ", streaming=" + std::to_string(initialRejectedStreamingRequests) + ")" +
-                   ", sample source IP: " + firstInitialRejectedIp);
+                   ", streaming=" + std::to_string(initialRejectedStreamingRequests) + ")");
     }
 
+    // initialize the metrics for the load balancers
     LoadBalancerMetrics processingMetrics = initializeMetrics(processingBalancer);
     LoadBalancerMetrics streamingMetrics = initializeMetrics(streamingBalancer);
 
+    // initial snapshots for the state of the load balancers
     logSimulationStartSnapshot(
         logger,
         "Processing",
@@ -233,6 +249,7 @@ int main() {
             streamingBalancer.evaluateScaling(config.minQueuePerServer, config.maxQueuePerServer, logger);
         }
 
+        // update the metrics for the load balancers
         updateMetrics(
             processingMetrics,
             processingBalancer,
@@ -244,9 +261,12 @@ int main() {
             newRequests.acceptedStreamingRequests,
             newRequests.rejectedStreamingRequests);
     }
+
+    // update the metrics for the load balancers with the initial requests
     processingMetrics.totalRejectedRequests += initialRejectedProcessingRequests;
     streamingMetrics.totalRejectedRequests += initialRejectedStreamingRequests;
 
+    // log the end of the simulation summary for the load balancers
     logSimulationEndSummary(
         logger,
         "Processing",

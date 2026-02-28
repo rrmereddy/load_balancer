@@ -69,3 +69,14 @@ void logSimulationEndSummary(
     const LoadBalancerMetrics& metrics,
     int initialServers,
     int cyclesRun);
+
+/**
+ * @details Print a concise end-of-run summary to the console.
+ * @param processingBalancer Processing load balancer.
+ * @param streamingBalancer Streaming load balancer.
+ * @param cyclesRun Actual cycles completed.
+ */
+void printSimulationConsoleSummary(
+    const LoadBalancer& processingBalancer,
+    const LoadBalancer& streamingBalancer,
+    int cyclesRun);
