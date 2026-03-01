@@ -6,6 +6,10 @@
 #include "WebServer.h"
 #include <sstream>
 
+/**
+ * @brief Constructs a web server with a unique identifier.
+ * @param id Server identifier.
+ */
 WebServer::WebServer(int id) : id_(id), currentRequest_() {
 }
 
@@ -14,9 +18,13 @@ WebServer::WebServer(int id) : id_(id), currentRequest_() {
  * @return Server id.
  */
 int WebServer::getId() const {
-    return id_; // return the server id
+    return id_;
 }
 
+/**
+ * @brief Gets the current assigned request.
+ * @return Current request state.
+ */
 Request WebServer::getCurrentRequest() const {
     return currentRequest_;
 }

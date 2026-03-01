@@ -1,6 +1,6 @@
 /**
  * @file Logger.h
- * @brief Defines a basic logging interface.
+ * @brief Declares a simple file logger.
  */
 
 #pragma once
@@ -9,22 +9,23 @@
 #include <string>
 
 /**
- * @details Handles logging events and summaries.
+ * @brief Handles logging events and summaries.
  */
 class Logger {
 public:
     /**
-     * @details Construct a new Logger.
+     * @brief Constructs a logger that appends to a file.
      * @param filePath Log file path.
      */
     explicit Logger(const std::string& filePath);
 
     /**
-     * @details Log a single line message.
+     * @brief Logs a single line message.
      * @param message Text to log.
      */
     void log(const std::string& message);
 
 private:
+    /** Output file stream for append-only logging. */
     std::ofstream file_;
 };

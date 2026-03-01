@@ -1,6 +1,6 @@
 /**
  * @file Request.h
- * @brief Defines the Request struct and job type.
+ * @brief Defines request data structures and utility helpers.
  */
 
 #pragma once
@@ -8,20 +8,26 @@
 #include <string>
 
 /**
- * @details Types of jobs that a request can represent.
+ * @brief Supported request job categories.
  */
 enum class JobType {
+    /** CPU-oriented workload. */
     Processing,
+    /** Bandwidth-oriented workload. */
     Streaming
 };
 
 /**
- * @details Represents a single web request.
+ * @brief Represents a single web request in the simulation.
  */
 struct Request {
+    /** Source IPv4 address for the request. */
     std::string ipIn;
+    /** Destination IPv4 address for the request. */
     std::string ipOut;
+    /** Remaining processing time in simulation cycles. */
     int timeCycles;
+    /** Workload category used for routing. */
     JobType jobType;
 };
 

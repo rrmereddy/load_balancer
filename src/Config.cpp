@@ -1,15 +1,14 @@
 /**
  * @file Config.cpp
- * @brief Implements config loading.
+ * @brief Implements configuration loading.
  */
 
 #include "Config.h"
 
 /**
- * The config file helps with the configuration of the load balancer.
- * Confiurations are taken from the project requirements and can be changed as needed/
+ * @brief Loads the default simulation configuration.
+ * @return Configuration populated with project default values.
  */
-
 Config loadConfig() {
     Config config;
     config.initialServers = 10;

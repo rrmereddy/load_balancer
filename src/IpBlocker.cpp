@@ -1,6 +1,6 @@
 /**
  * @file IpBlocker.cpp
- * @brief Implements IP blocking checks.
+ * @brief Implements IPv4 allowlist checks.
  */
 
 #include "IpBlocker.h"
@@ -9,7 +9,12 @@
 
 namespace {
 
-// helper function to parse an IPv4 address. Done by AI
+/**
+ * @brief Parses an IPv4 string into a 32-bit integer.
+ * @param ip Dotted-decimal IPv4 string.
+ * @param out Output integer value when parsing succeeds.
+ * @return True when parsing succeeds and the address is valid.
+ */
 bool parseIpv4(const std::string& ip, std::uint32_t& out) {
     unsigned int a = 0U;
     unsigned int b = 0U;
@@ -34,7 +39,11 @@ bool parseIpv4(const std::string& ip, std::uint32_t& out) {
 
 } // namespace
 
-// adds an allowed IP range to the blocker. This is just taken from the config file and makes sure that no invalid ranges are added
+/**
+ * @brief Adds an allowed IPv4 range to the blocker.
+ * @param range Inclusive string range to add.
+ * @return True when both addresses parse successfully.
+ */
 bool IpBlocker::addAllowedRange(const IpRange& range) {
     std::uint32_t start = 0;
     std::uint32_t end = 0;
@@ -50,7 +59,11 @@ bool IpBlocker::addAllowedRange(const IpRange& range) {
     return true;
 }
 
-// checks if an IP is allowed by the blocker
+/**
+ * @brief Checks whether an IPv4 address is allowed.
+ * @param ip Source IPv4 string.
+ * @return True when the address falls in any configured range.
+ */
 bool IpBlocker::isAllowed(const std::string& ip) const {
     std::uint32_t value = 0;
     if (!parseIpv4(ip, value)) {

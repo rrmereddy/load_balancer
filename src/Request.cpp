@@ -1,6 +1,6 @@
 /**
  * @file Request.cpp
- * @brief Implements Request utilities.
+ * @brief Implements request helper utilities.
  */
 
 #include "Request.h"
@@ -8,7 +8,9 @@
 #include <string>
 
 /**
- * This is used to convert the job type to a character for logging.
+ * @brief Converts job type to a compact single-character label.
+ * @param type Job type to convert.
+ * @return `P` for processing jobs and `S` for streaming jobs.
  */
 char jobTypeToChar(JobType type) {
     switch (type) {
@@ -22,7 +24,9 @@ char jobTypeToChar(JobType type) {
 }
 
 /**
- * This is used to convert the job type from a character to a job type enum.
+ * @brief Converts a single-character label to a job type.
+ * @param typeChar Character representation of a job type.
+ * @return Matching job type; defaults to Processing for unknown values.
  */
 JobType jobTypeFromChar(char typeChar) {
     switch (typeChar) {
@@ -37,7 +41,9 @@ JobType jobTypeFromChar(char typeChar) {
 }
 
 /**
- * This is used to convert the job type to a string for logging.
+ * @brief Converts job type to a descriptive string.
+ * @param type Job type to convert.
+ * @return Human-readable job type name.
  */
 std::string jobTypeToString(JobType type) {
     switch (type) {
@@ -50,10 +56,10 @@ std::string jobTypeToString(JobType type) {
     }
 }
 
-
 /**
- * This is used to make a random IP address for the request.
- * Funstions implemented by AI using the header file provided.
+ * @brief Generates a random IPv4 address string.
+ * @param engine Random engine used for octet generation.
+ * @return Randomly generated IPv4 address.
  */
 static std::string makeRandomIp(std::mt19937& engine) {
     std::uniform_int_distribution<int> octetDist(0, 255);
@@ -61,6 +67,10 @@ static std::string makeRandomIp(std::mt19937& engine) {
            "." + std::to_string(octetDist(engine)) + "." + std::to_string(octetDist(engine));
 }
 
+/**
+ * @brief Creates a random request for simulation.
+ * @return Random request with source/destination IP, job type, and duration.
+ */
 Request makeRandomRequest() {
     static std::mt19937 engine(std::random_device{}());
     std::uniform_int_distribution<int> timeDist(1, 10);

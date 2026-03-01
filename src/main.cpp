@@ -1,6 +1,6 @@
 /**
  * @file main.cpp
- * @brief Entry point for the load balancer.
+ * @brief Entry point and simulation orchestration.
  */
 
 #include "Config.h"
@@ -15,19 +15,26 @@
 #include <string>
 
 /**
- * @brief Randomly enqueue new requests to simulate live incoming traffic.
- * @return Accepted and rejected request counts for this cycle.
+ * @brief Tracks accepted/rejected incoming request counts per job type.
  */
 struct IncomingTrafficResult {
+    /** Accepted processing requests. */
     int acceptedProcessingRequests;
+    /** Accepted streaming requests. */
     int acceptedStreamingRequests;
+    /** Rejected processing requests. */
     int rejectedProcessingRequests;
+    /** Rejected streaming requests. */
     int rejectedStreamingRequests;
 };
 
 
-// makes a biased request based on the blocked traffic rate
-// helps with simulating requests that are blocked or allowed
+/**
+ * @brief Generates a request biased toward blocked or allowed traffic.
+ * @param ipBlocker Configured allowlist checker.
+ * @param blockedTrafficRate Target probability of generating blocked traffic.
+ * @return Generated request matching target distribution when possible.
+ */
 static Request makeBiasedRequest(const IpBlocker& ipBlocker, double blockedTrafficRate) {
 
     // create a random engine for the request
@@ -59,6 +66,15 @@ static Request makeBiasedRequest(const IpBlocker& ipBlocker, double blockedTraff
     return fallback;
 }
 
+/**
+ * @brief Simulates one cycle of incoming traffic generation and routing.
+ * @param switchRouter Switch used to route accepted requests.
+ * @param ipBlocker Allowlist checker for source IPs.
+ * @param blockedTrafficRate Target blocked-traffic ratio for generation.
+ * @param currentClock Current simulation cycle for logging.
+ * @param logger Logger used for traffic event output.
+ * @return Accepted/rejected counts per job type for this cycle.
+ */
 static IncomingTrafficResult simulateIncomingRequests(
     Switch& switchRouter,
     const IpBlocker& ipBlocker,
@@ -121,6 +137,10 @@ static IncomingTrafficResult simulateIncomingRequests(
     return result;
 }
 
+/**
+ * @brief Runs the full load-balancing simulation.
+ * @return Exit code (`0` on success).
+ */
 int main() {
     // load the configuration for the load balancer, this will be used to configure the load balancer
     Config config = loadConfig();

@@ -1,0 +1,29 @@
+/**
+ * @mainpage Project 3 - Load Balancer Simulation
+ *
+ * @section overview Overview
+ * This project simulates a scalable load-balancing environment for mixed web workloads.
+ * Requests are generated with randomized source and destination IP addresses, categorized
+ * into processing and streaming jobs, and routed through dedicated balancers.
+ *
+ * @section classes Main Classes
+ * - @ref Request "Request": Represents an incoming request with endpoints, duration, and job type.
+ * - @ref WebServer "WebServer": Models a server that accepts and processes one request at a time.
+ * - @ref LoadBalancer "LoadBalancer": Manages queued requests, dispatching, and auto-scaling.
+ *
+ * @section flow Simulation Flow
+ * 1. Configuration values are loaded (servers, cycles, scaling thresholds, allowed IP ranges).
+ * 2. Incoming requests are generated and filtered by IP allowlist rules.
+ * 3. The switch routes accepted requests to processing or streaming balancers.
+ * 4. Servers process requests cycle-by-cycle and balancers evaluate scaling behavior.
+ * 5. Start and end snapshots are logged with queue/server/performance metrics.
+ *
+ * @section output Documentation Output
+ * Doxygen HTML output is generated with:
+ * @code{.sh}
+ * doxygen Doxyfile
+ * @endcode
+ *
+ * The generated site is written to `docs/doxygen/html` and can be uploaded to
+ * your `people.tamu.edu` web directory for submission.
+ */

@@ -1,3 +1,8 @@
+/**
+ * @file MetricsReporter.cpp
+ * @brief Implements simulation metrics aggregation and reporting.
+ */
+
 #include "MetricsReporter.h"
 
 #include "Logger.h"
@@ -15,11 +20,10 @@ const int kTaskTimeMaxCycles = 10;
 const std::size_t kQueueSampleSize = 8;
 const std::size_t kServerSampleSize = 8;
 
-// helper function to format the request for logging
 /**
- * @details Format the request for logging.
- * @param request The request to format.
- * @return The formatted request.
+ * @brief Formats a request as a concise log string.
+ * @param request Request to format.
+ * @return Formatted request line.
  */
 std::string formatRequestForLog(const Request& request) {
     std::ostringstream line;
@@ -29,7 +33,12 @@ std::string formatRequestForLog(const Request& request) {
     return line.str();
 }
 
-// helper function to format a double to a string with a given precision
+/**
+ * @brief Formats a floating-point value with fixed precision.
+ * @param value Value to format.
+ * @param precision Decimal precision to use.
+ * @return String representation of the value.
+ */
 std::string formatDouble(double value, int precision = 2) {
     std::ostringstream stream;
     stream << std::fixed << std::setprecision(precision) << value;
@@ -37,11 +46,11 @@ std::string formatDouble(double value, int precision = 2) {
 }
 
 /**
- * @details Log the queue snapshot.
- * @param logger The logger to use.
- * @param balancer The balancer to use.
- * @param title The title of the snapshot.
- * @param maxItems The maximum number of items to log.
+ * @brief Logs a snapshot of the balancer queue.
+ * @param logger Logger used for output.
+ * @param balancer Balancer whose queue is sampled.
+ * @param title Prefix title for this snapshot.
+ * @param maxItems Maximum queued requests to print.
  */
 void logQueueSnapshot(Logger& logger, const LoadBalancer& balancer, const std::string& title, std::size_t maxItems) {
     // log the queue size
@@ -60,7 +69,13 @@ void logQueueSnapshot(Logger& logger, const LoadBalancer& balancer, const std::s
     }
 }
 
-// helps to log a server snapshot
+/**
+ * @brief Logs a snapshot of server utilization and sampled assignments.
+ * @param logger Logger used for output.
+ * @param balancer Balancer whose servers are sampled.
+ * @param title Prefix title for this snapshot.
+ * @param maxItems Maximum servers to print.
+ */
 void logServerSnapshot(Logger& logger, const LoadBalancer& balancer, const std::string& title, std::size_t maxItems) {
     const std::vector<ServerSnapshot> snapshots = balancer.getServerSnapshots();
     logger.log(title + " server snapshot: active=" + std::to_string(balancer.getActiveServerCount()) +
@@ -87,7 +102,11 @@ void logServerSnapshot(Logger& logger, const LoadBalancer& balancer, const std::
 
 } // namespace
 
-// initializes the metrics for a given balancer
+/**
+ * @brief Initializes metrics from the balancer's starting state.
+ * @param balancer Balancer to initialize metrics for.
+ * @return Initialized metrics structure.
+ */
 LoadBalancerMetrics initializeMetrics(const LoadBalancer& balancer) {
     const std::size_t startingQueueSize = balancer.getQueueSize();
     LoadBalancerMetrics metrics;
@@ -102,7 +121,13 @@ LoadBalancerMetrics initializeMetrics(const LoadBalancer& balancer) {
     return metrics;
 }
 
-// updates the metrics for a given balancer
+/**
+ * @brief Updates metrics after one simulation cycle.
+ * @param metrics Metrics object to mutate.
+ * @param balancer Balancer providing state values.
+ * @param acceptedRequests Accepted requests for this cycle.
+ * @param rejectedRequests Rejected requests for this cycle.
+ */
 void updateMetrics(
     LoadBalancerMetrics& metrics,
     const LoadBalancer& balancer,
@@ -118,7 +143,15 @@ void updateMetrics(
     metrics.maxServersObserved = std::max(metrics.maxServersObserved, balancer.getServerCount());
 }
 
-// logs the start of the simulation snapshot
+/**
+ * @brief Logs the start-of-run snapshot for a balancer.
+ * @param logger Logger used for output.
+ * @param label Balancer label for log scoping.
+ * @param balancer Balancer being reported.
+ * @param initialServers Starting server count for this balancer.
+ * @param runCycles Requested run length.
+ * @param initialRequestCount Initial accepted request count.
+ */
 void logSimulationStartSnapshot(
     Logger& logger,
     const std::string& label,
@@ -142,8 +175,15 @@ void logSimulationStartSnapshot(
     logQueueSnapshot(logger, balancer, prefix + "Start-of-log", kQueueSampleSize);
 }
 
-
-// a bunch of metrics to log at the end of the simulation
+/**
+ * @brief Logs the end-of-run summary for a balancer.
+ * @param logger Logger used for output.
+ * @param label Balancer label for log scoping.
+ * @param balancer Balancer being reported.
+ * @param metrics Aggregated run metrics.
+ * @param initialServers Starting server count for this balancer.
+ * @param cyclesRun Number of cycles completed.
+ */
 void logSimulationEndSummary(
     Logger& logger,
     const std::string& label,

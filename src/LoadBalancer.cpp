@@ -8,6 +8,11 @@
 #include <iterator>
 #include <sstream>
 
+/**
+ * @brief Constructs a load balancer with an initial server pool.
+ * @param initialServers Number of servers to create initially.
+ * @param balancerLabel Human-readable balancer label used in logs.
+ */
 LoadBalancer::LoadBalancer(int initialServers, const std::string& balancerLabel)
 : requestQueue_(),
   servers_(),
@@ -31,10 +36,19 @@ int LoadBalancer::getServerCount() const {
     return static_cast<int>(servers_.size());
 }
 
+/**
+ * @brief Gets the number of queued requests.
+ * @return Current queue length.
+ */
 std::size_t LoadBalancer::getQueueSize() const {
     return requestQueue_.size();
 }
 
+/**
+ * @brief Gets a copy of the first queued requests.
+ * @param maxItems Maximum number of requests to include.
+ * @return Snapshot vector of queued requests.
+ */
 std::vector<Request> LoadBalancer::getQueueSnapshot(std::size_t maxItems) const {
     std::vector<Request> snapshot;
     if (maxItems == 0 || requestQueue_.empty()) {
@@ -49,6 +63,10 @@ std::vector<Request> LoadBalancer::getQueueSnapshot(std::size_t maxItems) const 
     return snapshot;
 }
 
+/**
+ * @brief Gets the current snapshot of all servers.
+ * @return Vector with one snapshot entry per server.
+ */
 std::vector<ServerSnapshot> LoadBalancer::getServerSnapshots() const {
     // get the server snapshots
     std::vector<ServerSnapshot> snapshot;
@@ -67,7 +85,10 @@ std::vector<ServerSnapshot> LoadBalancer::getServerSnapshots() const {
     return snapshot;
 }
 
-// gets the number of active servers
+/**
+ * @brief Gets number of busy servers.
+ * @return Count of active servers.
+ */
 int LoadBalancer::getActiveServerCount() const {
     int active = 0;
     for (const auto& server : servers_) {
@@ -78,16 +99,27 @@ int LoadBalancer::getActiveServerCount() const {
     return active;
 }
 
-// gets the number of idle servers
+/**
+ * @brief Gets number of idle servers.
+ * @return Count of inactive servers.
+ */
 int LoadBalancer::getIdleServerCount() const {
     return static_cast<int>(servers_.size()) - getActiveServerCount();
 }
 
+/**
+ * @brief Adds a request to the queue and increments totals.
+ * @param request Request to enqueue.
+ */
 void LoadBalancer::enqueueRequest(const Request& request) {
     requestQueue_.push(request);
     ++totalRequests_;
 }
 
+/**
+ * @brief Checks whether any work remains to be processed.
+ * @return True when queue is non-empty or a server is busy.
+ */
 bool LoadBalancer::hasPendingRequests() const {
     // if the request queue is not empty, return true
     if (!requestQueue_.empty()) {
@@ -103,6 +135,11 @@ bool LoadBalancer::hasPendingRequests() const {
     return false;
 }
 
+/**
+ * @brief Dispatches queued work and advances active server requests.
+ * @param logger Logger used for dispatch/progress/completion messages.
+ * @return True when at least one queued request was assigned this cycle.
+ */
 bool LoadBalancer::dispatchToServers(Logger& logger) {
     bool dispatched = false;
 
@@ -153,17 +190,23 @@ bool LoadBalancer::dispatchToServers(Logger& logger) {
     return dispatched;
 }
 
-// advances the clock by one cycle
+/**
+ * @brief Advances the balancer clock by one cycle.
+ */
 void LoadBalancer::tick() {
     ++clock_;
 }
 
-// adds a server to the load balancer
+/**
+ * @brief Adds one new server to the pool.
+ */
 void LoadBalancer::addServer() {
     servers_.push_back(WebServer(nextServerId_++));
 }
 
-// removes a server from the load balancer
+/**
+ * @brief Removes one idle server, preferring most recently added.
+ */
 void LoadBalancer::removeServer() {
     for (auto it = servers_.rbegin(); it != servers_.rend(); ++it) {
         if (!it->isBusy()) {
@@ -173,10 +216,20 @@ void LoadBalancer::removeServer() {
     }
 }
 
+/**
+ * @brief Gets the current clock value.
+ * @return Simulation clock.
+ */
 int LoadBalancer::getClock() const {
     return clock_;
 }
 
+/**
+ * @brief Applies auto-scaling rules based on queue-per-server ratio.
+ * @param minQueuePerServer Threshold below which scale-down is considered.
+ * @param maxQueuePerServer Threshold above which scale-up is triggered.
+ * @param logger Logger used for scaling event messages.
+ */
 void LoadBalancer::evaluateScaling(int minQueuePerServer, int maxQueuePerServer, Logger& logger) {
     const std::size_t queueSize = requestQueue_.size();
     const int serverCount = static_cast<int>(servers_.size());
@@ -242,7 +295,7 @@ void LoadBalancer::evaluateScaling(int minQueuePerServer, int maxQueuePerServer,
 }
 
 /**
- * @details Remove one idle server if any and if requested. Finished by AI
+ * @brief Removes one idle server if available.
  * @param logger Logger for removal events.
  * @return True if a server was removed, false otherwise.
  */
@@ -264,6 +317,10 @@ bool LoadBalancer::removeOneIdleServer(Logger& logger) {
     return false;
 }
 
+/**
+ * @brief Processes pending scale-down requests once servers become idle.
+ * @param logger Logger for scale-down events.
+ */
 void LoadBalancer::processDeferredScaleDown(Logger& logger) {
     while (pendingScaleDown_ > 0) {
         if (!removeOneIdleServer(logger)) {
@@ -273,30 +330,51 @@ void LoadBalancer::processDeferredScaleDown(Logger& logger) {
     }
 }
 
+/**
+ * @brief Gets total accepted request count.
+ * @return Number of accepted requests.
+ */
 int LoadBalancer::getTotalRequestsCount() const {
     return totalRequests_;
 }
 
+/**
+ * @brief Gets total completed request count.
+ * @return Number of handled requests.
+ */
 int LoadBalancer::getTotalRequestsHandledCount() const {
     return totalRequestsHandled_;
 }
 
 /**
- * @details Get the total number of requests remaining.
+ * @brief Gets total number of requests remaining.
  * @return Total requests remaining.
  */
 int LoadBalancer::getTotalRequestsRemainingCount() const {
     return totalRequests_ - totalRequestsHandled_;
 }
 
+/**
+ * @brief Gets total number of servers added by scaling.
+ * @return Number of added servers.
+ */
 int LoadBalancer::getTotalServersAddedCount() const {
     return totalServersAdded_;
 }
 
+/**
+ * @brief Gets total number of servers removed by scaling.
+ * @return Number of removed servers.
+ */
 int LoadBalancer::getTotalServersRemovedCount() const {
     return totalServersRemoved_;
 }
 
+/**
+ * @brief Formats a server tag for consistent logging output.
+ * @param server Server to describe.
+ * @return String tag with balancer label and server id.
+ */
 std::string LoadBalancer::formatServerTag(const WebServer& server) const {
     return "[" + balancerLabel_ + "] Server " + std::to_string(server.getId());
 }

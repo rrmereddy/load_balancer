@@ -1,6 +1,6 @@
 /**
  * @file WebServer.h
- * @brief Defines the WebServer class interface.
+ * @brief Declares the WebServer class.
  */
 
 #pragma once
@@ -25,8 +25,8 @@ public:
     int getId() const;
 
     /**
-     * @brief Get the current request.
-     * @return Current request.
+     * @brief Gets the request currently assigned to the server.
+     * @return Copy of the current request state.
      */
     Request getCurrentRequest() const;
 
@@ -49,12 +49,13 @@ public:
 
     /**
      * @brief Handle the current request. Process the request for one cycle.
-     *        If the request is completed, clear the request.
-     * @return True if the request is completed, false otherwise.
+     * @return True when the request has completed this cycle; otherwise false.
      */
     bool handleRequest();
 
 private:
+    /** Unique server identifier. */
     int id_;
+    /** Request currently being processed, if any. */
     Request currentRequest_;
 };
